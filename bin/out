@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -eu
+
+WORKING_DIR=$1
+echo "WORKING_DIR = $WORKING_DIR" 1>&2
+
+jq . < /dev/stdin 1>&2
+
+jq -n '{version: {}, metadata: [{name: "name", value: "value"}]}'

@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -eu
+
+DESTINATION=$1
+echo "DESTINATION = $DESTINATION" 1>&2
+
+jq . < /dev/stdin 1>&2
+
+jq -n '{version: {}, metadata: [{name: "name", value: "value"}]}'
