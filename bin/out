@@ -47,5 +47,5 @@ if ! cmp $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted; then
 fi
 
 # report status
-VERSION=$(sha1sum $CLOUDFORMATION_FILE.sorted)
-jq -n "{version: {sha1: $VERSION}, metadata: []}" >&3
+VERSION=$(sha1sum $CLOUDFORMATION_FILE.sorted | cut -d' ' -f1)
+jq -n "{version: {sha1: \"$VERSION\"}, metadata: []}" >&3
