@@ -10,7 +10,7 @@ WORKING_DIR=$1
 echo "WORKING_DIR = $WORKING_DIR"
 
 # read stdin
-jq -C -S . < /dev/stdin | tee /tmp/input
+jq -M -S . < /dev/stdin | tee /tmp/input
 
 # check that the input is valid json
 CLOUDFORMATION_FILE=$(jq .params.cloudformation_file < /tmp/input)
