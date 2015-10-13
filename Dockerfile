@@ -1,4 +1,4 @@
-FROM progrium/busybox
+FROM ubuntu
 
 ENV buildDependencies ""
 ENV runDependencies python-pip jq
