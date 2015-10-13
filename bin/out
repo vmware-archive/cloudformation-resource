@@ -13,7 +13,7 @@ echo "WORKING_DIR = $WORKING_DIR"
 jq -M -S . < /dev/stdin | tee /tmp/input
 
 # check that the input is valid json
-CLOUDFORMATION_FILE=$(jq .params.cloudformation_file < /tmp/input)
+CLOUDFORMATION_FILE=$WORKING_DIR/$(jq .params.cloudformation_file < /tmp/input)
 jq -C . < $CLOUDFORMATION_FILE
 
 # determine stack action
