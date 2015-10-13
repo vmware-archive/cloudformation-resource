@@ -36,7 +36,7 @@ fi
 # sort the cloudformation files
 jq -S .TemplateBody < $OLD_STACK_CONFIG > $OLD_STACK_CONFIG.sorted
 jq -S . < $CLOUDFORMATION_FILE > $CLOUDFORMATION_FILE.sorted
-diff $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted
+diff $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted || true
 
 # upload the cloudformation json using the aws cli
 if ! cmp $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted; then
