@@ -1,10 +1,43 @@
 #!/bin/sh
 
-set -eu
+set -eux
+set -o pipefail
+
+exec 3>&1 # use fd 3 for script output
+exec 1>&2 # send normal stdout to stderr for logging
 
 WORKING_DIR=$1
-echo "WORKING_DIR = $WORKING_DIR" 1>&2
+echo "WORKING_DIR = $WORKING_DIR"
 
-jq . < /dev/stdin 1>&2
+# read stdin
+jq -C -S . < /dev/stdin | tee /tmp/input
 
-jq -n '{version: {}, metadata: [{name: "name", value: "value"}]}'
+# check that the input is valid json
+CLOUDFORMATION_FILE=$(jq .params.cloudformation_file < /tmp/input)
+jq -C . < $CLOUDFORMATION_FILE
+
+# determine stack action
+OLD_STACK_CONFIG=/tmp/$$-old.json
+STACK_NAME=$(jq .params.stack_name < /tmp/input)
+if aws cloudformation get-template --stack-name $STACK_NAME > $OLD_STACK_CONFIG; then
+  STACK_ACTION=update-stack
+else
+  STACK_ACTION=create-stack
+fi
+
+# sort the cloudformation files
+jq -c -S .TemplateBody < $OLD_STACK_CONFIG > $OLD_STACK_CONFIG.sorted
+jq -c -S . < $CLOUDFORMATION_FILE > $CLOUDFORMATION_FILE.sorted
+diff $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted
+
+# upload the cloudformation json using the aws cli
+if ! cmp $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted; then
+  aws cloudformation $STACK_ACTION \
+    --stack-name $STACK_NAME \
+    --template-body file://$CLOUDFORMATION_FILE.sorted
+  boosh watch --name $STACK_NAME
+fi
+
+# report status
+VERSION=$(sha1sum $CLOUDFORMATION_FILE.sorted)
+jq -n "{version: {sha1: $VERSION}, metadata: []}" >&3
