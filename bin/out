@@ -13,20 +13,20 @@ echo "WORKING_DIR = $WORKING_DIR"
 jq -M -S . < /dev/stdin | tee /tmp/input
 
 # check that the input is valid json
-CLOUDFORMATION_FILE=$WORKING_DIR/$(jq .params.cloudformation_file < /tmp/input | tr -d '"')
+CLOUDFORMATION_FILE=$WORKING_DIR/$(jq -r .params.cloudformation_file < /tmp/input)
 jq -C . < $CLOUDFORMATION_FILE
 
 # load AWS crds
-export AWS_ACCESS_KEY_ID=$(jq .source.aws_access_key < /tmp/input | tr -d '"')
-export AWS_SECRET_ACCESS_KEY=$(jq .source.aws_secret_key < /tmp/input | tr -d '"')
-export AWS_DEFAULT_REGION=$(jq .source.aws_region < /tmp/input | tr -d '"')
+export AWS_ACCESS_KEY_ID=$(jq -r .source.aws_access_key < /tmp/input)
+export AWS_SECRET_ACCESS_KEY=$(jq -r .source.aws_secret_key < /tmp/input)
+export AWS_DEFAULT_REGION=$(jq -r .source.aws_region < /tmp/input)
 if [[ "$AWS_DEFAULT_REGION" == "null" ]]; then
   export AWS_DEFAULT_REGION=us-east-1
 fi
 
 # determine stack action
 OLD_STACK_CONFIG=/tmp/$$-old.json
-STACK_NAME=$(jq .params.stack_name < /tmp/input | tr -d '"')
+STACK_NAME=$(jq -r .params.stack_name < /tmp/input)
 if aws cloudformation get-template --stack-name $STACK_NAME > $OLD_STACK_CONFIG; then
   STACK_ACTION=update-stack
 else
