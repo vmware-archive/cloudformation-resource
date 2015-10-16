@@ -39,8 +39,15 @@ jq -S . < $CLOUDFORMATION_FILE > $CLOUDFORMATION_FILE.sorted
 diff $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted || true
 
 # upload the cloudformation json using the aws cli
+CAPABILITIES=$(jq -r .params.capabilities < /tmp/input)
+if [ $CAPABILITIES == "" ]; then
+  $CAPABILITIES_ARG=""
+else
+  $CAPABILITIES_ARG="--capabilities=$CAPABILITIES"
+fi
 if ! cmp $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted; then
   aws cloudformation $STACK_ACTION \
+    $CAPABILITIES_ARG \
     --stack-name $STACK_NAME \
     --template-body file://$CLOUDFORMATION_FILE.sorted
   boosh watch --name $STACK_NAME
