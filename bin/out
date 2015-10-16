@@ -41,9 +41,9 @@ diff $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted || true
 # upload the cloudformation json using the aws cli
 CAPABILITIES=$(jq -r .params.capabilities < /tmp/input)
 if [ $CAPABILITIES == "" ]; then
-  $CAPABILITIES_ARG=""
+  CAPABILITIES_ARG=""
 else
-  $CAPABILITIES_ARG="--capabilities=$CAPABILITIES"
+  CAPABILITIES_ARG="--capabilities=$CAPABILITIES"
 fi
 if ! cmp $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted; then
   aws cloudformation $STACK_ACTION \
