@@ -15,7 +15,7 @@ An output only resource (at the moment) that will configure your stack in AWS us
 ``` yaml
 resources:
 - name: aws-setup
-  type: cloudfomation
+  type: cloudformation
   source:
     aws_access_key: some_access_key
     aws_secret_key: some_secret_key
@@ -27,7 +27,7 @@ jobs:
 ...
 - put: aws-setup
   params:
-    cloudformation_file: path/to/cloudfomation/configuration/file
+    cloudformation_file: path/to/cloudformation/configuration/file
     stack_name: name_of_aws_stack_to_configure
 ```
 
