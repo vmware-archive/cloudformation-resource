@@ -45,3 +45,16 @@ Given a Cloudformation configuration file and a AWS stack name, this will apply 
 
 * `capabilities`: *Optional.* Additional CloudFormation capabilities required (example "CAPABILITY_IAM")
   "[Currently, the only valid value is CAPABILITY_IAM](http://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_CreateStack.html)"
+
+### Requirements
+
+You must add the following to your Concourse BOSH manifest to pull the Cloudformation container.
+You will need to redeploy your Concourse server once you've updated the manifest.
+
+```yaml
+properties:
+  groundcrew:
+    resource_types:
+    - image: docker:///pcfseceng/cloudformation-resource
+      type: cloudformation
+```
