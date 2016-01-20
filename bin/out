@@ -39,7 +39,7 @@ jq -S . < $CLOUDFORMATION_FILE > $CLOUDFORMATION_FILE.sorted
 diff $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted || true
 
 # upload the cloudformation json using the aws cli
-CAPABILITIES=$(jq -r .params.capabilities < /tmp/input)
+CAPABILITIES=$(jq -r '.params.capabilities // empty' < /tmp/input)
 if [ $CAPABILITIES == "" ]; then
   CAPABILITIES_ARG=""
 else
