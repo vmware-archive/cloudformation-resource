@@ -8,6 +8,8 @@ An output only resource (at the moment) that will configure your stack in AWS us
 
 * `aws_secret_key`: *Required.* The user secret key that is required to make changes to the Cloudformation stack.
 
+* `stack_name`: *Required.* The name of the stack in AWS that is being used.
+
 * `aws_region`: *Optional.* The region associated with the Clouformation stack that we are making changes to. The region is defaulted to us-east-1.
 
 ### Example
@@ -32,6 +34,18 @@ jobs:
 ```
 
 ## Behavior
+
+### `check`: Check for successful Cloudformation changes.
+
+The stack is checked and if it has been successfully created or updated, a new version is triggered.
+
+### `in`: Load resources managed by the Cloudformation stack.
+
+Pulls down resource IDs, stack outputs, and metadata about the stack.
+
+ * `/arn.txt` - the Stack ARN
+ * `/outputs.json` - a JSON object with the stack [outputs](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html)
+ * `/resources.json` - a JSON object with the logical IDs of all created resources (resource name + `Id` is the key). Names of security groups are also set (resource name + `Name`).
 
 ### `out`: Submit changes to your Cloudformation stack.
 

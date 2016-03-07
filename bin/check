@@ -2,4 +2,23 @@
 
 set -eu
 
-jq -n '[]'
+. $(dirname $0)/common.sh
+
+load_env
+load_stack
+
+STATUS=$( jqstack '.Stacks[0].StackStatus' )
+
+if ! is_stack_completed ; then
+  echo '[]'
+  exit
+fi
+
+REF_NEW=$( jqstack '.Stacks[0].LastUpdatedTime' )
+
+if [ "$REF_NEW" = "$REF" ] ; then
+  echo '[]'
+  exit
+fi
+
+jq -n -c --arg ref "$REF_NEW" '[{"ref":$ref}]'

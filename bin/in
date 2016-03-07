@@ -2,8 +2,45 @@
 
 set -eu
 
-DESTINATION=$1
-echo "DESTINATION = $DESTINATION" 1>&2
+. $(dirname $0)/common.sh
 
-# add metadata to whatver is passed in (which includes version)
-jq '. + { metadata: [] }' /dev/stdin
+load_env
+load_stack
+
+is_stack_completed \
+  || fatal 'stack mutating'
+
+[ "$REF" = "$( jqstack '.Stacks[0].LastUpdatedTime' )" ] \
+  || fatal 'stack mutated'
+
+cd $1
+
+(
+  aws cloudformation describe-stack-resources --stack-name="$STACK_NAME" \
+    | jq '.StackResources[] | { "key": (.LogicalResourceId+"Id"), "value": .PhysicalResourceId }'
+
+  aws ec2 describe-security-groups --filters Name=tag-key,Values=aws:cloudformation:stack-name Name=tag-value,Values="$STACK_NAME" \
+    | jq '.SecurityGroups[] | { "name" : .GroupName, "tags" : .Tags | map({ "key" : .Key, "value" : .Value }) | from_entries } | { "key": (.tags["aws:cloudformation:logical-id"] + "Name"), "value": .name }'
+) \
+  | jq -s '. | from_entries // {}' \
+  > resources.json
+
+jqstack '[(.Stacks[0].Outputs // [])[] | { "key": .OutputKey, "value": .OutputValue }] | from_entries // {}' \
+  > outputs.json
+
+jqstack '.Stacks[0].StackId' \
+  > arn.txt
+
+jq -n -c --arg ref "$REF" --arg status "$( jqstack '.Stacks[0].StackStatus' )" '
+  {
+    "version": {
+      "ref": $ref
+    },
+    "metadata": [
+      {
+        "name": "status",
+        "value": $status
+      }
+    ]
+  }
+'
