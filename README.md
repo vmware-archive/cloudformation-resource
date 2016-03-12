@@ -1,4 +1,4 @@
-# AWS Cloudformation Stack Resource
+# AWS CloudFormation Stack Resource
 
 A [Concourse](http://concourse.ci) resource to manage your [AWS CloudFormation](http://aws.amazon.com/cloudformation/) stacks.
 
