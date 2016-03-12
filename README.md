@@ -1,74 +1,116 @@
-# Cloudformation Resource
+# AWS Cloudformation Stack Resource
 
-An output only resource (at the moment) that will configure your stack in AWS using Cloudformation.
+A [Concourse](http://concourse.ci) resource to manage your [AWS CloudFormation](http://aws.amazon.com/cloudformation/) stacks.
+
 
 ## Source Configuration
 
-* `aws_access_key`: *Required.* The user access key that will be required to make changes to the Cloudformation stack.
+ * **`name`** - the stack name
+ * **`access_key`** - AWS access key
+ * **`secret_key`** - AWS secret key
+ * `region` - the region to manage the stack (default `us-east-1`)
 
-* `aws_secret_key`: *Required.* The user secret key that is required to make changes to the Cloudformation stack.
-
-* `stack_name`: *Required.* The name of the stack in AWS that is being used.
-
-* `aws_region`: *Optional.* The region associated with the Clouformation stack that we are making changes to. The region is defaulted to us-east-1.
-
-### Example
-
-``` yaml
-resources:
-- name: aws-setup
-  type: cloudformation
-  source:
-    aws_access_key: some_access_key
-    aws_secret_key: some_secret_key
-    aws_region: us-east-1
-```
-
-``` yaml
-jobs:
-...
-- put: aws-setup
-  params:
-    cloudformation_file: path/to/cloudformation/configuration/file
-    stack_name: name_of_aws_stack_to_configure
-```
 
 ## Behavior
 
-### `check`: Check for successful Cloudformation changes.
+### `check`
 
-The stack is checked and if it has been successfully created or updated, a new version is triggered.
+Trigger when the stack is successfully created or updated.
 
-### `in`: Load resources managed by the Cloudformation stack.
 
-Pulls down resource IDs, stack outputs, and metadata about the stack.
+### `in`
 
- * `/arn.txt` - the Stack ARN
+Pulls down stack parameters, outputs, resource IDs, and metadata.
+
+ * `/arn.txt` - the stack ARN
  * `/outputs.json` - a JSON object with the stack [outputs](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html)
- * `/resources.json` - a JSON object with the logical IDs of all created resources (resource name + `Id` is the key). Names of security groups are also set (resource name + `Name`).
+ * `/parameters.json` - a JSON object with the stack parameters
+ * `/resources.json` - a JSON object with the logical IDs of all created resources (resource name + `Id` is the key). Names of security groups are also set (resource name + `Name`)
 
-### `out`: Submit changes to your Cloudformation stack.
+Parameters:
 
-Given a Cloudformation configuration file and a AWS stack name, this will apply your Cloudformation configuration to the specified stack in AWS.
+ * `allow_deleted` - by default the resource will fail when referencing a deleted stack (default `false`)
 
-#### Parameters
 
-* `cloudformation_file`: *Required.* A path to a file containing the Cloudformation configuration.
+### `out`
 
-* `stack_name`: *Required.* The name of the stack in AWS that this will apply the Cloudformation configuration to.
+Create, update, or delete the stack. The `parameters` and `tags` data should by a simple key-value hash of names and values (e.g. `{"my_name":"my_value"}`).
 
-* `capabilities`: *Optional.* Additional CloudFormation capabilities required (example "CAPABILITY_IAM")
-  "[Currently, the only valid value is CAPABILITY_IAM](http://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_CreateStack.html)"
+ * **`template`** - path to a file containing the Cloudformation template (do not configure when enabling `delete`)
+ * `parameters` - path to a JSON file or executable file which will output the JSON
+ * `tags` - path to a JSON file or executable file which will output the JSON
+ * `capabilities` - array of additional [capabilities](http://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_CreateStack.html) (e.g. `CAPABILITY_IAM`)
+ * `delete` - set to `true` to delete the stack (default `false`)
 
-### Requirements
 
-You must add the following to your Concourse BOSH manifest to pull the Cloudformation container.
-You will need to redeploy your Concourse server once you've updated the manifest.
+## Installation
 
-```yaml
-properties:
-  groundcrew:
+This resource is not included with the standard Concourse release. Use one of the following methods.
+
+
+### Deployment-wide
+
+To install on all Concourse workers, update your deployment manifest to add a new `resource_types`...
+
+    properties:
+      groundcrew:
+        resource_types:
+          - image: "docker:///dpb587/aws-cloudformation-stack-resource#stable"
+            type: "aws-cloudformation-stack"
+
+
+### Pipeline-specific
+
+To use on a single pipeline, update your pipeline to add a new `resource_types`...
+
     resource_types:
-    - image: docker:///pcfseceng/cloudformation-resource
-      type: cloudformation
-```
+      - name: "aws-cloudformation-stack"
+        type: "docker-image"
+        source:
+          repository: "dpb587/aws-cloudformation-stack-resource"
+          tag: "stable"
+
+
+### Example
+
+The following example uses a repository to store configuration and, whenever the repository is updated, the stack will be created/updated according to template or parameter changes. Another job watches the stack for changes and will execute a hook to propagate stack results and resources to dependent services.
+
+    resources:
+      # a stack we will be updating
+      - name: "acme-stack"
+        type: "aws-cloudformation-stack"
+        source:
+          name: "my-acme-stack-name"
+          access_key: "my-aws-access-key"
+          secret_key: "my-aws-secret-key"
+      
+      # a repository to version your configuration
+      - name: "acme-config"
+        type: "git-resource"
+        source:
+          repository: "git@git.acme.internal:infra.git"
+    
+    jobs:
+      # update the stack when changes are made in your repo
+      - name: "update-prod-stack"
+        plan:
+          - get: "acme-config"
+            trigger: true
+          - put: "acme-stack"
+            params:
+              template: "acme-infra/vpc/template.json"
+              parameters: "acme-infra/vpc/generate-parameters.sh"
+      
+      # execute a hook whenever the stack is created/updated
+      # propagate task will see `stack/arn.txt`, `stack/outputs.json`, ...
+      - name: "propagate-resources"
+        plan:
+          - aggregate:
+              - get: "stack"
+                resource: "acme-stack"
+                trigger: true
+              - get: "acme-config"
+          - task: "propagate"
+            file: "acme-config/vpc/post-update-hooks.yml"
+
+Another example is the [main](./ci/pipelines/main.yml) pipeline which creates/updates/deletes a stack as part of some lightweight tests.

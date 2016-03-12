@@ -1,0 +1,132 @@
+---  
+jobs:
+  - name: "build-resource"
+    serial: true
+    plan:
+      - get: "repo"
+        trigger: true
+      - put: "resource-image"
+        params:
+          build: "repo"
+        get_params:
+          skip_download: true
+  - name: "test-out"
+    serial: true
+    plan:
+      - aggregate:
+          - get: "repo"
+            trigger: true
+            passed:
+              - "build-resource"
+          - get: "resource-image"
+            passed:
+              - "build-resource"
+            params:
+              skip_download: true
+      - put: "test-stack"
+        params:
+          template: "repo/ci/pipelines/main/test-out/template.json"
+          parameters: "repo/ci/pipelines/main/test-out/template-params.sh"
+  - name: "test-check-in"
+    serial: true
+    plan:
+      - aggregate:
+          - get: "repo"
+            passed:
+              - "test-out"
+          - get: "test-stack"
+            trigger: true
+            passed:
+              - "test-out"
+          - get: "resource-image"
+            passed:
+              - "test-out"
+            params:
+              skip_download: true
+      - task: "test"
+        file: "repo/ci/pipelines/main/test-check-in/task.yml"
+  - name: "test-delete"
+    serial: true
+    plan:
+      - aggregate:
+          - get: "repo"
+            passed:
+              - "test-check-in"
+          - get: "test-stack"
+            trigger: true
+            passed:
+              - "test-check-in"
+          - get: "resource-image"
+            passed:
+              - "test-check-in"
+            params:
+              skip_download: true
+      - put: "test-stack"
+        params:
+          delete: true
+        get_params:
+          allow_deleted: true
+  - name: "promote-candidate"
+    serial: true
+    plan:
+      - aggregate:
+          - get: "repo"
+            trigger: true
+            passed:
+              - "test-delete"
+          - get: "resource-image"
+            passed:
+              - "test-delete"
+            params:
+              save: true
+      - aggregate:
+        - put: "repo-candidate"
+          params:
+            repository: "repo"
+        - put: "resource-image-candidate"
+          params:
+            import_file: "resource-image/image"
+          get_params:
+            skip_download: true
+
+resources:
+  - name: "repo"
+    type: "git"
+    source:
+      uri: {{repo_uri}}
+      branch: {{repo_branch}}
+      private_key: {{repo_key}}
+  - name: "test-stack"
+    type: "aws-cloudformation-stack"
+    source:
+      name: {{test_stack}}
+      access_key: {{test_access_key}}
+      secret_key: {{test_secret_key}}
+      region: {{test_region}}
+  - name: "resource-image"
+    type: "docker-image"
+    source:
+      repository: {{images_repo}}
+      tag: {{repo_branch}}
+      insecure_registries: [{{images_insecure_registries}}]
+
+  - name: "repo-candidate"
+    type: "git"
+    source:
+      uri: {{repo_uri}}
+      branch: {{repo_branch_candidate}}
+      private_key: {{repo_key}}
+  - name: "resource-image-candidate"
+    type: "docker-image"
+    source:
+      repository: {{images_repo}}
+      tag: {{repo_branch_candidate}}
+      insecure_registries: [{{images_insecure_registries}}]
+
+resource_types:
+  - name: "aws-cloudformation-stack"
+    type: "docker-image"
+    source:
+      repository: {{images_repo}}
+      tag: {{repo_branch}}
+      insecure_registries: [{{images_insecure_registries}}]

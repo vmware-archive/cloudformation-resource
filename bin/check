@@ -1,24 +1,24 @@
 #!/bin/sh
 
-set -eu
-
 . $(dirname $0)/common.sh
 
 load_env
-load_stack
-
-STATUS=$( jqstack '.Stacks[0].StackStatus' )
+load_stack false
 
 if ! is_stack_completed ; then
-  echo '[]'
+  echo '[]' >&3
   exit
 fi
 
-REF_NEW=$( jqstack '.Stacks[0].LastUpdatedTime' )
+NEXT_VERSION_ARN=$( jqstack '.Stacks[0] | .StackId // "MISSING"' )
+NEXT_VERSION=$( jqstack '.Stacks[0] | { "arn": ( .StackId // "MISSING" ), "time": ( .LastUpdatedTime // .CreationTime // "MISSING" ) }' )
 
-if [ "$REF_NEW" = "$REF" ] ; then
-  echo '[]'
+if [ "$NEXT_VERSION" = "$VERSION" ] ; then
+  echo '[]' >&3
+  exit
+elif [ "$NEXT_VERSION_ARN" = "MISSING" ] ; then
+  echo '[]' >&3
   exit
 fi
 
-jq -n -c --arg ref "$REF_NEW" '[{"ref":$ref}]'
+echo "[$NEXT_VERSION]" >&3

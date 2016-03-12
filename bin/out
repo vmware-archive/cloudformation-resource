@@ -1,58 +1,172 @@
-#!/bin/bash
+#!/bin/sh
 
-set -eux
-set -o pipefail
+. $(dirname $0)/common.sh
 
-exec 3>&1 # use fd 3 for script output
-exec 1>&2 # send normal stdout to stderr for logging
+load_env
 
-WORKING_DIR=$1
-echo "WORKING_DIR = $WORKING_DIR"
+if [ "true" = "$( jq -r '.params.delete' < /tmp/stdin )" ] ; then
+  load_stack
 
-# read stdin
-jq -M -S . < /dev/stdin | tee /tmp/input
-
-# check that the input is valid json
-CLOUDFORMATION_FILE=$WORKING_DIR/$(jq -r .params.cloudformation_file < /tmp/input)
-jq -C . < $CLOUDFORMATION_FILE
-
-# load AWS crds
-export AWS_ACCESS_KEY_ID=$(jq -r .source.aws_access_key < /tmp/input)
-export AWS_SECRET_ACCESS_KEY=$(jq -r .source.aws_secret_key < /tmp/input)
-export AWS_DEFAULT_REGION=$(jq -r .source.aws_region < /tmp/input)
-if [[ "$AWS_DEFAULT_REGION" == "null" ]]; then
-  export AWS_DEFAULT_REGION=us-east-1
+  REM 'deleting stack'
+  
+  aws cloudformation delete-stack --stack-name "$STACK_NAME" \
+    > /tmp/result
+  
+  REM 'waiting for completion'
+  
+  export STACK_NAME=$( jqstack '.Stacks[0].StackId' )
+  
+  TIMED_OUT=true
+  
+  for s in $( seq 360 ) ; do
+    sleep 5
+    
+    load_stack
+    
+    if is_stack_completed ; then
+      TIMED_OUT=''
+      break
+    elif is_stack_errored ; then
+      fatal "delete-stack failed: $( jqstack '.Stacks[0].StackStatusReason' )"
+    fi
+  done
+  
+  if [ -n "$TIMED_OUT" ] ; then
+    fatal "delete-stack timed out"
+  fi
+  
+  REM 'completed'
+  
+  jq -c -n \
+    --arg arn "$STACK_NAME" \
+    '{ "version": { "arn": $arn, "time": "DELETED" } }' >&3
+  
+  exit
 fi
 
-# determine stack action
-OLD_STACK_CONFIG=/tmp/$$-old.json
-STACK_NAME=$(jq -r .params.stack_name < /tmp/input)
-if aws cloudformation get-template --stack-name $STACK_NAME > $OLD_STACK_CONFIG; then
+###
+REM 'looking for stack'
+###
+
+( aws cloudformation get-template --stack-name "$STACK_NAME" 2>/dev/null || echo '{"TemplateBody":{}}' ) \
+  | jq -r -S '.TemplateBody' \
+  > /tmp/stack-template-old.sorted
+
+TEMPLATE=$( jq -r '.params.template' < /tmp/stdin )
+
+jq -S '.' \
+  < "$TEMPLATE" \
+  > /tmp/stack-template-new.sorted
+
+if [ $( stat --format "%s" /tmp/stack-template-old.sorted ) -gt 3 ] ; then
+  load_stack
   STACK_ACTION=update-stack
+  jqstack '[ .Stacks[0].Parameters | sort_by(.ParameterKey) | .[] | { "ParameterKey": .ParameterKey, "ParameterValue": .ParameterValue } ]' \
+    > /tmp/stack-parameters-old
+  
+  REM "found stack $( jqstack '.Stacks[0].StackId' )"
 else
   STACK_ACTION=create-stack
+  echo '{}' > /tmp/stack-parameters-old
+  
+  REM 'no stack found'
 fi
 
-# sort the cloudformation files
-jq -S .TemplateBody < $OLD_STACK_CONFIG > $OLD_STACK_CONFIG.sorted
-jq -S . < $CLOUDFORMATION_FILE > $CLOUDFORMATION_FILE.sorted
-diff $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted || true
+#
+# parameters
+#
 
-# upload the cloudformation json using the aws cli
-CAPABILITIES=$(jq -r '.params.capabilities // empty' < /tmp/input)
-if [ -z "$CAPABILITIES" ]; then
-  CAPABILITIES_ARG=""
+PARAMETERS=$( jq -r '.params.parameters // ""' < /tmp/stdin )
+PARAMETERS_ARG=''
+
+if [ -n "$PARAMETERS" ] ; then
+  if [ -x "$PARAMETERS" ] ; then
+    REM 'looking up parameters'
+    /bin/sh -e "$PARAMETERS" > /tmp/parameters.raw
+    PARAMETERS=/tmp/parameters.raw
+  fi
+  
+  jq -c '[ . | to_entries | sort_by(.key) | .[] | { "ParameterKey": .key, "ParameterValue": .value } ]' \
+    < "$PARAMETERS" \
+    > /tmp/stack-parameters-new
+  
+  PARAMETERS_ARG='--parameters=file:///tmp/stack-parameters-new'
 else
+  echo '[]' > /tmp/stack-parameters-new
+fi
+
+#
+# capabilities
+#
+
+CAPABILITIES=$( jq -r '( .params.capabilities // []) | join(" ")' < /tmp/stdin )
+CAPABILITIES_ARG=''
+
+if [ -n "$CAPABILITIES" ] ; then
   CAPABILITIES_ARG="--capabilities=$CAPABILITIES"
 fi
-if ! cmp $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted; then
-  aws cloudformation $STACK_ACTION \
-    $CAPABILITIES_ARG \
-    --stack-name $STACK_NAME \
-    --template-body file://$CLOUDFORMATION_FILE.sorted
-  boosh watch --name $STACK_NAME
+
+#
+# tags
+#
+
+TAGS=$( jq -r '.params.tags // ""' < /tmp/stdin )
+TAGS_ARG=''
+
+if [ -n "$TAGS" ] ; then
+  if [ -x "$TAGS" ] ; then
+    REM 'looking up tags'
+    /bin/sh -e "$TAGS" > /tmp/tags.raw
+    TAGS=/tmp/tags.raw
+  fi
+  
+  jq '[ . | to_entries | .[] | sort_by(.key) | { "Key": .key, "Value": .value } ]' \
+    < "$TAGS" \
+    > /tmp/tags
+  
+  TAGS_ARG='--tags=file:///tmp/tags'
 fi
 
-# report status
-VERSION=$(sha1sum $CLOUDFORMATION_FILE.sorted | cut -d' ' -f1)
-jq -n "{version: {sha1: \"$VERSION\"}, metadata: []}" >&3
+#
+# execute
+#
+
+if ! cmp -s /tmp/stack-template-old.sorted /tmp/stack-template-new.sorted \
+|| ! cmp -s /tmp/stack-parameters-old /tmp/stack-parameters-new ; then
+  REM 'applying new stack configuration'
+  
+  aws cloudformation $STACK_ACTION \
+    $CAPABILITIES_ARG $PARAMETERS_ARG $TAGS_ARG \
+    --stack-name="$STACK_NAME" \
+    --template-body="file://$TEMPLATE" \
+    > /tmp/result
+  
+  REM 'waiting for completion'
+  
+  TIMED_OUT=true
+  
+  for s in $( seq 360 ) ; do
+    sleep 5
+    
+    load_stack
+    
+    if is_stack_completed ; then
+      TIMED_OUT=''
+      break
+    elif is_stack_errored ; then
+      fatal "$STACK_ACTION failed: $( jqstack '.Stacks[0].StackStatusReason' )"
+    fi
+  done
+  
+  if [ -n "$TIMED_OUT" ] ; then
+    fatal "$STACK_ACTION timed out"
+  fi
+  
+  REM 'completed'
+fi
+
+#
+# version
+#
+
+jqstack '.Stacks[0] | { "version": { "arn" : .StackId, "time" : ( .LastUpdatedTime // .CreationTime ) } }' >&3

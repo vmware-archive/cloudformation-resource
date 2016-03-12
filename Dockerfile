@@ -1,23 +1,14 @@
-FROM golang:1.5
+FROM ubuntu:trusty
 
-ENV buildDependencies ""
-ENV runDependencies python-pip jq
+RUN true \
+  && apt-get -q update \
+  && apt-get -qy install python-pip wget \
+  && apt-get -q purge \
+  && apt-get -q autoremove \
+  && apt-get -q clean \
+  && rm -fr /var/lib/apt/lists/* /tmp/* /var/tmp/* \
+  && pip install awscli \
+  && wget -qO /usr/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 \
+  && chmod +x /usr/bin/jq
 
-RUN \
-    # Installing build dependencies and run dependencies
-    apt-get update -yqq \
-&&  apt-get install -fyqq ${buildDependencies} ${runDependencies} \
-    # Removing build dependencies, clean temporary files
-&&  apt-get purge -yqq ${buildDependencies} \
-&&  apt-get autoremove -yqq \
-&&  apt-get clean \
-&&  rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-RUN pip install awscli
-
-RUN go get github.com/kr/godep \
-&&  godep get github.com/vito/boosh
-
-ADD bin/check /opt/resource/check
-ADD bin/in /opt/resource/in
-ADD bin/out /opt/resource/out
+ADD bin/* /opt/resource/

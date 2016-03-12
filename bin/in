@@ -1,41 +1,57 @@
 #!/bin/sh
 
-set -eu
-
 . $(dirname $0)/common.sh
-
-load_env
-load_stack
-
-is_stack_completed \
-  || fatal 'stack mutating'
-
-[ "$REF" = "$( jqstack '.Stacks[0].LastUpdatedTime' )" ] \
-  || fatal 'stack mutated'
 
 cd $1
 
-(
-  aws cloudformation describe-stack-resources --stack-name="$STACK_NAME" \
-    | jq '.StackResources[] | { "key": (.LogicalResourceId+"Id"), "value": .PhysicalResourceId }'
+load_env
+load_stack false
 
-  aws ec2 describe-security-groups --filters Name=tag-key,Values=aws:cloudformation:stack-name Name=tag-value,Values="$STACK_NAME" \
-    | jq '.SecurityGroups[] | { "name" : .GroupName, "tags" : .Tags | map({ "key" : .Key, "value" : .Value }) | from_entries } | { "key": (.tags["aws:cloudformation:logical-id"] + "Name"), "value": .name }'
-) \
-  | jq -s '. | from_entries // {}' \
-  > resources.json
+if [ "DELETED" = "$( jqstack '.Stacks[0].LastUpdatedTime' )" ]; then
+  jq -e 'true == ( .params.allow_deleted // false )' < /tmp/stdin > /dev/null \
+    || fatal 'stack is deleted'
+  
+  REM 'stack does not exist'
+  
+  touch deleted
+else
+  is_stack_completed \
+    || fatal 'stack mutating'
 
-jqstack '[(.Stacks[0].Outputs // [])[] | { "key": .OutputKey, "value": .OutputValue }] | from_entries // {}' \
-  > outputs.json
+  [ "$VERSION" = "$( jqstack '.Stacks[0] | { "arn": .StackId, "time": ( .LastUpdatedTime // .CreationTime ) }' )" ] \
+    || fatal "stack mutated"
 
-jqstack '.Stacks[0].StackId' \
-  > arn.txt
+  jqstack '.Stacks[0].StackId' \
+    > arn.txt
 
-jq -n -c --arg ref "$REF" --arg status "$( jqstack '.Stacks[0].StackStatus' )" '
+  REM 'loading outputs'
+
+  jqstack '[(.Stacks[0].Outputs // [])[] | { "key": .OutputKey, "value": .OutputValue }] | from_entries // {}' \
+    > outputs.json
+
+  REM 'loading parameters'
+
+  jqstack '[(.Stacks[0].Parameters // [])[] | { "key": .ParameterKey, "value": .ParameterValue }] | from_entries // {}' \
+    > parameters.json
+
+  REM 'loading resources'
+
+  (
+    aws cloudformation describe-stack-resources --stack-name="$STACK_NAME" \
+      | jq '.StackResources[] | { "key": (.LogicalResourceId+"Id"), "value": .PhysicalResourceId }'
+
+    aws ec2 describe-security-groups --filters Name=tag-key,Values=aws:cloudformation:stack-name Name=tag-value,Values="$STACK_NAME" \
+      | jq '.SecurityGroups[] | { "name" : .GroupName, "tags" : .Tags | map({ "key" : .Key, "value" : .Value }) | from_entries } | { "key": (.tags["aws:cloudformation:logical-id"] + "Name"), "value": .name }'
+  ) \
+    | jq -s '. | from_entries // {}' \
+    > resources.json
+fi
+
+jq -n -c \
+  --arg ref "$VERSION" \
+  --arg status "$( jqstack '.Stacks[0].StackStatus' )" '
   {
-    "version": {
-      "ref": $ref
-    },
+    "version": ( $ref | fromjson ),
     "metadata": [
       {
         "name": "status",
@@ -43,4 +59,4 @@ jq -n -c --arg ref "$REF" --arg status "$( jqstack '.Stacks[0].StackStatus' )" '
       }
     ]
   }
-'
+' >&3
