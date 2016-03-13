@@ -59,7 +59,7 @@ is_stack_completed () {
 
 is_stack_errored () {
   STATUS=$( jqstack '.Stacks[0].StackStatus // "DELETE_COMPLETE"' )
-  [ \( "$STATUS" = "CREATE_FAILED" \) -o \( "$STATUS" = "ROLLBACK_COMPLETE" \) -o \( "$STATUS" = "ROLLBACK_FAILED" \) -o \( "$STATUS" = "DELETE_FAILED" \) -o \( "$STATUS" = "UPDATE_ROLLBACK_FAILED" \) ]
+  [ \( "$STATUS" = "CREATE_FAILED" \) -o \( "$STATUS" = "ROLLBACK_COMPLETE" \) -o \( "$STATUS" = "UPDATE_ROLLBACK_COMPLETE" \) -o \( "$STATUS" = "ROLLBACK_FAILED" \) -o \( "$STATUS" = "DELETE_FAILED" \) -o \( "$STATUS" = "UPDATE_ROLLBACK_FAILED" \) ]
   return $?
 }
 

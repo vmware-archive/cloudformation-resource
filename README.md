@@ -36,7 +36,7 @@ Parameters:
 
 Create, update, or delete the stack. The `parameters` and `tags` data should by a simple key-value hash of names and values (e.g. `{"my_name":"my_value"}`).
 
- * **`template`** - path to a file containing the Cloudformation template (do not configure when enabling `delete`)
+ * **`template`** - path to a CloudFormation template or executable file which will output the template (do not configure when enabling `delete`)
  * `parameters` - path to a JSON file or executable file which will output the JSON
  * `tags` - path to a JSON file or executable file which will output the JSON
  * `capabilities` - array of additional [capabilities](http://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_CreateStack.html) (e.g. `CAPABILITY_IAM`)

@@ -54,6 +54,12 @@ REM 'looking for stack'
 
 TEMPLATE=$( jq -r '.params.template' < /tmp/stdin )
 
+if [ -x "$TEMPLATE" ] ; then
+  REM 'generating template'
+  /bin/sh -e "$TEMPLATE" > /tmp/stack-template-new
+  TEMPLATE=/tmp/stack-template-new
+fi
+
 jq -S '.' \
   < "$TEMPLATE" \
   > /tmp/stack-template-new.sorted
@@ -61,7 +67,7 @@ jq -S '.' \
 if [ $( stat --format "%s" /tmp/stack-template-old.sorted ) -gt 3 ] ; then
   load_stack
   STACK_ACTION=update-stack
-  jqstack '[ .Stacks[0].Parameters | sort_by(.ParameterKey) | .[] | { "ParameterKey": .ParameterKey, "ParameterValue": .ParameterValue } ]' \
+  jqstack '[ .Stacks[0].Parameters // [] | sort_by(.ParameterKey) | .[] | { "ParameterKey": .ParameterKey, "ParameterValue": .ParameterValue } ]' \
     > /tmp/stack-parameters-old
   
   REM "found stack $( jqstack '.Stacks[0].StackId' )"
@@ -81,7 +87,7 @@ PARAMETERS_ARG=''
 
 if [ -n "$PARAMETERS" ] ; then
   if [ -x "$PARAMETERS" ] ; then
-    REM 'looking up parameters'
+    REM 'generating parameters'
     /bin/sh -e "$PARAMETERS" > /tmp/parameters.raw
     PARAMETERS=/tmp/parameters.raw
   fi
@@ -115,7 +121,7 @@ TAGS_ARG=''
 
 if [ -n "$TAGS" ] ; then
   if [ -x "$TAGS" ] ; then
-    REM 'looking up tags'
+    REM 'generating tags'
     /bin/sh -e "$TAGS" > /tmp/tags.raw
     TAGS=/tmp/tags.raw
   fi
