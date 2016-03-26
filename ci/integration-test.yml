@@ -1,0 +1,14 @@
+---
+platform: linux
+
+image: /var/vcap/packages/docker_image_resource
+
+inputs:
+  - name: task-repo
+outputs: []
+run:
+  path: task-repo/ci/integration-test.sh
+params:
+  AWS_ACCESS_KEY:
+  AWS_SECRET_KEY:
+  AWS_REGION:

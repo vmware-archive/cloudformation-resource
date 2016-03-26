@@ -1,0 +1,19 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Resources": {
+    "TestBucket": {
+      "Properties": {
+        "AccessControl": "Private",
+        "BucketName": "concourse-test-cloudformation-resource-bucket"
+      },
+      "Type": "AWS::S3::Bucket"
+    },
+    "TestBucket2": {
+      "Properties": {
+        "AccessControl": "Private",
+        "BucketName": "concourse-test-cloudformation-resource-bucket2"
+      },
+      "Type": "AWS::S3::Bucket"
+    }
+  }
+}
