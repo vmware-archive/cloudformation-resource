@@ -20,7 +20,7 @@ generate_input() {
      },
      "params": {
        "cloudformation_file": "${cloudformation_file}",
-       "stack_name": "test"
+       "stack_name": "cloudformation-resource-integration"
      },
      "version": {
        "timestamp": ""
