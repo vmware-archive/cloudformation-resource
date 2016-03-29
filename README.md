@@ -20,11 +20,10 @@ Trigger when the stack is successfully created or updated.
 
 ### `in`
 
-Pulls down stack parameters, outputs, resource IDs, and metadata.
+Pulls down stack outputs, resource IDs, and metadata.
 
  * `/arn.txt` - the stack ARN
  * `/outputs.json` - a JSON object with the stack [outputs](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html)
- * `/parameters.json` - a JSON object with the stack parameters
  * `/resources.json` - a JSON object with the logical IDs of all created resources (resource name + `Id` is the key). Names of security groups are also set (resource name + `Name`)
 
 Parameters:
@@ -34,11 +33,11 @@ Parameters:
 
 ### `out`
 
-Create, update, or delete the stack. The `parameters` and `tags` data should by a simple key-value hash of names and values (e.g. `{"my_name":"my_value"}`).
+Create, update, or delete the stack. The `parameters` and `tags` data should by a simple key-value hash of names and values (e.g. `{"MyName":"MyValue"}`).
 
- * **`template`** - path to a CloudFormation template or executable file which will output the template (do not configure when enabling `delete`)
- * `parameters` - path to a JSON file or executable file which will output the JSON
- * `tags` - path to a JSON file or executable file which will output the JSON
+ * **`template`** - path to a CloudFormation template (do not configure when enabling `delete`)
+ * `parameters` - path to a JSON file
+ * `tags` - path to a JSON file
  * `capabilities` - array of additional [capabilities](http://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_CreateStack.html) (e.g. `CAPABILITY_IAM`)
  * `delete` - set to `true` to delete the stack (default `false`)
 

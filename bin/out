@@ -54,17 +54,11 @@ REM 'looking for stack'
 
 TEMPLATE=$( jq -r '.params.template' < /tmp/stdin )
 
-if [ -x "$TEMPLATE" ] ; then
-  REM 'generating template'
-  /bin/sh -e "$TEMPLATE" > /tmp/stack-template-new
-  TEMPLATE=/tmp/stack-template-new
-fi
-
 jq -S '.' \
   < "$TEMPLATE" \
   > /tmp/stack-template-new.sorted
 
-if [ $( stat --format "%s" /tmp/stack-template-old.sorted ) -gt 3 ] ; then
+if [ $( stat -c "%s" /tmp/stack-template-old.sorted ) -gt 3 ] ; then
   load_stack
   STACK_ACTION=update-stack
   jqstack '[ .Stacks[0].Parameters // [] | sort_by(.ParameterKey) | .[] | { "ParameterKey": .ParameterKey, "ParameterValue": .ParameterValue } ]' \
@@ -86,13 +80,7 @@ PARAMETERS=$( jq -r '.params.parameters // ""' < /tmp/stdin )
 PARAMETERS_ARG=''
 
 if [ -n "$PARAMETERS" ] ; then
-  if [ -x "$PARAMETERS" ] ; then
-    REM 'generating parameters'
-    /bin/sh -e "$PARAMETERS" > /tmp/parameters.raw
-    PARAMETERS=/tmp/parameters.raw
-  fi
-  
-  jq -c '[ . | to_entries | sort_by(.key) | .[] | { "ParameterKey": .key, "ParameterValue": .value } ]' \
+  jq -c 'to_entries | sort_by(.key) | map({ "ParameterKey": .key, "ParameterValue": .value })' \
     < "$PARAMETERS" \
     > /tmp/stack-parameters-new
   
@@ -120,13 +108,7 @@ TAGS=$( jq -r '.params.tags // ""' < /tmp/stdin )
 TAGS_ARG=''
 
 if [ -n "$TAGS" ] ; then
-  if [ -x "$TAGS" ] ; then
-    REM 'generating tags'
-    /bin/sh -e "$TAGS" > /tmp/tags.raw
-    TAGS=/tmp/tags.raw
-  fi
-  
-  jq '[ . | to_entries | .[] | sort_by(.key) | { "Key": .key, "Value": .value } ]' \
+  jq -c 'to_entries |  sort_by(.key) | map({ "Key": .key, "Value": .value })' \
     < "$TAGS" \
     > /tmp/tags
   

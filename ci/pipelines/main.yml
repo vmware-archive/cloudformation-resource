@@ -25,8 +25,9 @@ jobs:
               skip_download: true
       - put: "test-stack"
         params:
-          template: "repo/ci/pipelines/main/test-out/template.json"
-          parameters: "repo/ci/pipelines/main/test-out/template-params.sh"
+          template: "repo/ci/pipelines/main/test-stack/template.json"
+          parameters: "repo/ci/pipelines/main/test-stack/parameters.json"
+          tags: "repo/ci/pipelines/main/test-stack/tags.json"
   - name: "test-check-in"
     serial: true
     plan:
