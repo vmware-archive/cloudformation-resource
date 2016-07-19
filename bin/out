@@ -21,6 +21,9 @@ export AWS_ACCESS_KEY_ID=$(jq -r .source.aws_access_key < /tmp/input)
 export AWS_SECRET_ACCESS_KEY=$(jq -r .source.aws_secret_key < /tmp/input)
 export AWS_DEFAULT_REGION=$(jq -r .source.aws_region < /tmp/input)
 
+# determine is user requires a changeset created
+CLOUDFORMATION_CHANGE_SET=$(jq -r .source.cloudformation_change_set < /tmp/input)
+
 # determine stack action
 OLD_STACK_CONFIG=/tmp/$$-old.json
 STACK_NAME=$(jq -r .params.stack_name < /tmp/input)
@@ -28,6 +31,11 @@ if aws cloudformation get-template --stack-name $STACK_NAME > $OLD_STACK_CONFIG;
   STACK_ACTION=update-stack
 else
   STACK_ACTION=create-stack
+fi
+
+# if user requested a changeset created, set STACK_ACTION appropriately
+if [ "$CLOUDFORMATION_CHANGE_SET" == "true" ]; then
+    STACK_ACTION="create-change-set --change-set-name $STACK_NAME-`date +%s`"
 fi
 
 # sort the cloudformation files
@@ -47,7 +55,11 @@ if ! cmp $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted; then
     $CAPABILITIES_ARG \
     --stack-name $STACK_NAME \
     --template-body file://$CLOUDFORMATION_FILE.sorted
-  boosh watch --name $STACK_NAME
+  
+  # nothing to watch if we're just making a change-set
+  if [ "$CLOUDFORMATION_CHANGE_SET" == "true" ]; then
+      boosh watch --name $STACK_NAME
+  fi
 fi
 
 # report status

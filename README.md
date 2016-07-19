@@ -46,6 +46,9 @@ Given a Cloudformation configuration file and a AWS stack name, this will apply 
 * `capabilities`: *Optional.* Additional CloudFormation capabilities required (example "CAPABILITY_IAM")
   "[Currently, the only valid value is CAPABILITY_IAM](http://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_CreateStack.html)"
 
+* `create_change_set`: *Optional* Create a CloudFormation [changeset](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-changesets-create.html)
+  instead of performing the update now.
+
 ### Requirements
 
 You must add the following to your Concourse BOSH manifest to pull the Cloudformation container.
