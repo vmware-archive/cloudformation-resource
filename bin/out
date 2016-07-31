@@ -77,6 +77,7 @@ fi
 #
 
 PARAMETERS=$( jq -r '.params.parameters // ""' < /tmp/stdin )
+PARAMETERS_AWS=$( jq -r '.params.parameters_aws // ""' < /tmp/stdin )
 PARAMETERS_ARG=''
 
 if [ -n "$PARAMETERS" ] ; then
@@ -84,6 +85,9 @@ if [ -n "$PARAMETERS" ] ; then
     < "$PARAMETERS" \
     > /tmp/stack-parameters-new
   
+  PARAMETERS_ARG='--parameters=file:///tmp/stack-parameters-new'
+elif [ -n "$PARAMETERS_AWS" ] ; then
+  cp "$PARAMETERS_AWS" /tmp/stack-parameters-new
   PARAMETERS_ARG='--parameters=file:///tmp/stack-parameters-new'
 else
   echo '[]' > /tmp/stack-parameters-new
