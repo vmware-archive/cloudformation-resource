@@ -1,7 +1,7 @@
 ---
 platform: linux
 
-image: /var/vcap/packages/docker_image_resource
+image: /var/vcap/packages/docker_image_resource/rootfs
 
 inputs:
   - name: task-repo
