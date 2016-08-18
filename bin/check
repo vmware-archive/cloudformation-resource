@@ -31,7 +31,13 @@ else
   fi
 
   if [ "$CURRENT_TIMESTAMP" != "$PREVIOUS_TIMESTAMP" ]; then
-    VERSION="{\"timestamp\":\"${CURRENT_TIMESTAMP}\"}"
+    STACK_POLICY=$(aws cloudformation get-stack-policy --stack-name $STACK_NAME; true)
+    if [ -z "$STACK_POLICY" ]; then
+      VERSION="{\"timestamp\":\"${CURRENT_TIMESTAMP}\"}"
+    else
+      POLICY_SHA=$(echo "$STACK_POLICY" | jq -r .StackPolicyBody | jq -r -c -S -M . | shasum | cut -f1 -d" "; true)
+      VERSION="{\"timestamp\":\"${CURRENT_TIMESTAMP}\",\"policy_sha\": \"${POLICY_SHA}\"}"
+    fi
   else
     VERSION=""
   fi

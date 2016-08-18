@@ -29,6 +29,7 @@ jobs:
   params:
     cloudformation_file: path/to/cloudformation/configuration/file
     stack_name: name_of_aws_stack_to_configure
+    policy_file: path/to/cloudformation/policy/file
 ```
 
 ## Behavior
@@ -42,6 +43,8 @@ Given a Cloudformation configuration file and a AWS stack name, this will apply 
 * `cloudformation_file`: *Required.* A path to a file containing the Cloudformation configuration.
 
 * `stack_name`: *Required.* The name of the stack in AWS that this will apply the Cloudformation configuration to.
+
+* `policy_file`: *Optional.* A path to a file containing the stack policy.
 
 * `capabilities`: *Optional.* Additional CloudFormation capabilities required (example "CAPABILITY_IAM")
   "[Currently, the only valid value is CAPABILITY_IAM](http://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_CreateStack.html)"

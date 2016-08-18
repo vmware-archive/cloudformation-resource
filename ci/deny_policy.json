@@ -1,0 +1,15 @@
+{
+  "Statement": [
+    {
+      "Effect": "Deny",
+      "Action": "Update:Delete",
+      "Principal": "*",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "ResourceType": "AWS::S3::Bucket"
+        }
+      }
+    }
+  ]
+}

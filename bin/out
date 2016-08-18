@@ -16,6 +16,17 @@ jq -M -S . < /dev/stdin | tee /tmp/input
 CLOUDFORMATION_FILE=$WORKING_DIR/$(jq -r .params.cloudformation_file < /tmp/input)
 jq -C . < $CLOUDFORMATION_FILE
 
+#check optional policy input
+POLICY_FILE_NAME=$(jq -r .params.policy_file < /tmp/input)
+if [ -z "$POLICY_FILE_NAME" ] || [ "null" = "$POLICY_FILE_NAME" ]; then
+  STACK_POLICY_ARG=""
+else
+  POLICY_FILE=$WORKING_DIR/$POLICY_FILE_NAME
+  jq -C . < $POLICY_FILE
+  POLICY_BODY=$(jq -r -c -S -M . < $POLICY_FILE)
+  STACK_POLICY_ARG="--stack-policy-body $POLICY_BODY"
+fi
+
 # load AWS crds
 export AWS_ACCESS_KEY_ID=$(jq -r .source.aws_access_key < /tmp/input)
 export AWS_SECRET_ACCESS_KEY=$(jq -r .source.aws_secret_key < /tmp/input)
@@ -46,6 +57,7 @@ if ! cmp $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted; then
   aws cloudformation $STACK_ACTION \
     $CAPABILITIES_ARG \
     --stack-name $STACK_NAME \
+    $STACK_POLICY_ARG \
     --template-body file://$CLOUDFORMATION_FILE.sorted
   boosh watch --name $STACK_NAME
 fi
