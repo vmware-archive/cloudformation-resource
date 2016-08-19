@@ -98,7 +98,7 @@ fi
 echo $(generate_input_with_policy two_bucket_cloudformation.json deny_policy.json)
 echo $(generate_input two_bucket_cloudformation.json)
 echo "Run initial creation"
-run_docker "$(generate_input_with_policy two_bucket_cloudformation.json deny_policy.json)"
+version1="$(run_docker "$(generate_input_with_policy two_bucket_cloudformation.json deny_policy.json)")"
 
 timestamp1="$(get_timestamp)"
 if  [ -z "$timestamp1" ]; then
@@ -107,27 +107,37 @@ if  [ -z "$timestamp1" ]; then
    exit 1
 fi
 
+echo "Check that identical inputs are ignored"
+run_docker "$(generate_input_with_policy two_bucket_cloudformation.json deny_policy.json)"
+
 echo "Witness policy enforcement"
 run_docker "$(generate_input_with_policy single_bucket_cloudformation.json deny_policy.json)"
-timestamp2="$(get_timestamp)"
 run_docker "$(generate_input_with_policy '' '')" '/tmp/test/describe_stack_resources.sh' | grep TestBucket2
 
 echo "Update policy"
-run_docker "$(generate_input_with_policy single_bucket_cloudformation.json allow_policy.json)"
+version2="$(run_docker "$(generate_input_with_policy two_bucket_cloudformation.json allow_policy.json)")"
+timestamp2="$(get_timestamp)"
 
-echo "Witness version change"
-timestamp3="$(get_timestamp)"
+echo "Witness check script output change"
+echo $timestamp1
 echo $timestamp2
-echo $timestamp3
-if [ "$timestamp3" == "$timestamp2" ]; then
+if [ "$timestamp2" == "$timestamp1" ]; then
    echo "the stack has not been updated"
    cleanup
    exit 1
 fi
 
+echo "Witness version change"
+echo $version1
+echo $version2
+if [ "$version1" == "$version2" ]; then
+  echo "the version has not been updated"
+  cleanup
+  exit 1
+fi
+
 echo "Witness updated policy enforcement (deletion allowed)"
 run_docker "$(generate_input_with_policy single_bucket_cloudformation.json allow_policy.json)"
-timestamp4="$(get_timestamp)"
 run_docker "$(generate_input_with_policy '' '')" '/tmp/test/describe_stack_resources.sh' | grep -v TestBucket2
 
 cleanup

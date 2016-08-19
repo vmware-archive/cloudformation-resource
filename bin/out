@@ -23,8 +23,9 @@ if [ -z "$POLICY_FILE_NAME" ]; then
 else
   POLICY_FILE=$WORKING_DIR/$POLICY_FILE_NAME
   jq -C . < $POLICY_FILE
-  POLICY_BODY=$(jq -r -c -S -M . < $POLICY_FILE)
-  STACK_POLICY_ARG="--stack-policy-body $POLICY_BODY"
+  jq -S . < $POLICY_FILE > $POLICY_FILE.sorted
+  POLICY_FILE_CONTENTS=$(jq -r -c -M . < $POLICY_FILE.sorted)
+  STACK_POLICY_ARG="--stack-policy-body $POLICY_FILE_CONTENTS"
 fi
 
 # load AWS crds
@@ -46,6 +47,15 @@ jq -S .TemplateBody < $OLD_STACK_CONFIG > $OLD_STACK_CONFIG.sorted
 jq -S . < $CLOUDFORMATION_FILE > $CLOUDFORMATION_FILE.sorted
 diff $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted || true
 
+# check existing policy
+if [ ! -z "$POLICY_FILE_NAME" ]; then
+  OLD_STACK_POLICY=/tmp/$$-old-policy.json
+  if aws cloudformation get-stack-policy --stack-name $STACK_NAME | jq -r .StackPolicyBody > $OLD_STACK_POLICY; then
+    jq -S . < $OLD_STACK_POLICY > $OLD_STACK_POLICY.sorted
+    diff $OLD_STACK_POLICY.sorted $POLICY_FILE.sorted || true
+  fi
+fi
+
 # upload the cloudformation json using the aws cli
 CAPABILITIES=$(jq -r '.params.capabilities // empty' < /tmp/input)
 if [ -z "$CAPABILITIES" ]; then
@@ -53,15 +63,26 @@ if [ -z "$CAPABILITIES" ]; then
 else
   CAPABILITIES_ARG="--capabilities=$CAPABILITIES"
 fi
-if ! cmp $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted; then
-  aws cloudformation $STACK_ACTION \
-    $CAPABILITIES_ARG \
-    --stack-name $STACK_NAME \
-    $STACK_POLICY_ARG \
-    --template-body file://$CLOUDFORMATION_FILE.sorted
-  boosh watch --name $STACK_NAME
+
+if (! cmp $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted) || ([ ! -z "$POLICY_FILE_NAME" ] && ! cmp $OLD_STACK_POLICY.sorted $POLICY_FILE.sorted); then
+  if ! cmp $OLD_STACK_CONFIG.sorted $CLOUDFORMATION_FILE.sorted; then
+    aws cloudformation $STACK_ACTION \
+      $CAPABILITIES_ARG \
+      --stack-name $STACK_NAME \
+      $STACK_POLICY_ARG \
+      --template-body file://$CLOUDFORMATION_FILE.sorted
+    boosh watch --name $STACK_NAME
+  else
+    aws cloudformation set-stack-policy \
+      --stack-name $STACK_NAME \
+      --stack-policy-body $POLICY_FILE_CONTENTS
+  fi
 fi
 
 # report status
-VERSION=$(sha1sum $CLOUDFORMATION_FILE.sorted | cut -d' ' -f1)
+if [ -z "$POLICY_FILE_NAME" ]; then
+  VERSION=$(cat $CLOUDFORMATION_FILE.sorted | sha1sum | cut -d' ' -f1)
+else
+  VERSION=$(cat $CLOUDFORMATION_FILE.sorted $POLICY_FILE.sorted | sha1sum | cut -d' ' -f1)
+fi
 jq -n "{version: {sha1: \"$VERSION\"}, metadata: []}" >&3
