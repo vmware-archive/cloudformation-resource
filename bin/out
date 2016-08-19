@@ -17,8 +17,8 @@ CLOUDFORMATION_FILE=$WORKING_DIR/$(jq -r .params.cloudformation_file < /tmp/inpu
 jq -C . < $CLOUDFORMATION_FILE
 
 #check optional policy input
-POLICY_FILE_NAME=$(jq -r .params.policy_file < /tmp/input)
-if [ -z "$POLICY_FILE_NAME" ] || [ "null" = "$POLICY_FILE_NAME" ]; then
+POLICY_FILE_NAME=$(jq -r '.params.policy_file // empty' < /tmp/input)
+if [ -z "$POLICY_FILE_NAME" ]; then
   STACK_POLICY_ARG=""
 else
   POLICY_FILE=$WORKING_DIR/$POLICY_FILE_NAME
