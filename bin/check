@@ -7,7 +7,7 @@ exec 3>&1 # use fd 3 for script output
 exec 1>&2 # send normal stdout to stderr for logging
 
 # read stdin
-jq -M -S . < /dev/stdin | tee /tmp/input
+jq -M -S . <&0 | tee /tmp/input
 
 # load AWS crds
 export AWS_ACCESS_KEY_ID=$(jq -r .source.aws_access_key < /tmp/input)

@@ -5,5 +5,5 @@ set -eu
 DESTINATION=$1
 echo "DESTINATION = $DESTINATION" 1>&2
 
-# add metadata to whatver is passed in (which includes version)
-jq '. + { metadata: [] }' /dev/stdin
+# add metadata to whatever is passed in (which includes version)
+jq '. + { metadata: [] }' <&0
