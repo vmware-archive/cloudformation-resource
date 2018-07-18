@@ -53,3 +53,5 @@ Given a Cloudformation configuration file and a AWS stack name, this will apply 
 
 * `capabilities`: *Optional.* Additional CloudFormation capabilities required (example "CAPABILITY_IAM")
   "[Currently, the only valid value is CAPABILITY_IAM](http://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_CreateStack.html)"
+
+* `quiet`: *Optional.* Disables trace output from being printed (which may contain credentials).
