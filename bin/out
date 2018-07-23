@@ -3,10 +3,6 @@
 set -eu
 set -o pipefail
 
-if [ "$(jq -r '.params.quiet' /tmp/input)" != "true" ]; then
-  set -x
-fi
-
 exec 3>&1 # use fd 3 for script output
 exec 1>&2 # send normal stdout to stderr for logging
 
@@ -14,7 +10,12 @@ WORKING_DIR=$1
 echo "WORKING_DIR = $WORKING_DIR"
 
 # read stdin
-jq -M -S . <&0 | tee /tmp/input
+jq -M -S . <&0 > /tmp/input
+
+if [ "$(jq -r '.params.quiet' /tmp/input)" != "true" ]; then
+  set -x
+  cat /tmp/input
+fi
 
 # check that the input is valid json
 CLOUDFORMATION_FILE=$WORKING_DIR/$(jq -r .params.cloudformation_file < /tmp/input)

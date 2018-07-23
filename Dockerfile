@@ -1,4 +1,4 @@
-FROM golang:1.5
+FROM golang:1.10
 
 ENV buildDependencies ""
 ENV runDependencies python-pip jq
@@ -15,6 +15,7 @@ RUN \
 
 RUN pip install awscli
 
+RUN go get golang.org/x/sys/unix
 RUN go get github.com/kr/godep \
 &&  godep get github.com/vito/boosh
 
